@@ -322,8 +322,8 @@ ProgramCall <- function(DataBase, SpeciesList, ClassList, NameList,
 }
 Execute <- ProgramCall(DataBase = JASPARDb, SpeciesList = c("Mus musculus", "Homo sapiens"), NameList = c(NA),
             ClassList = c("all", "C2H2 zinc finger factors"), TypeList = c("ChIP-seq"), TaxonomyList = c(NA),
-            VersionBoolean = F, FASTASeqPath = "F:/R_dir/Auxilliary/New folder", Strand = "+", 
-            IDScore = 0.8, Seq = FASTAFiles, ExportLocation = "F:/R_dir/Auxilliary/New folder")
+            VersionBoolean = F, FASTASeqPath = "FASTAFiles_ImportPath", Strand = "+", 
+            IDScore = 0.8, Seq = FASTAFiles, ExportLocation = "ExportPath")
 
 
 
