@@ -162,6 +162,7 @@ SequenceParse <- function(FASTAList, MotifVector,
   }
   FASTAString <- lapply(FASTAList, FASTASeq)
   SequenceList <- list()
+  PrintCNDTN = TRUE
   for (seq in 1:length(FASTAString)){
     #Initialize Sequence 1...
     Seq <- FASTAString[[seq]]
@@ -169,8 +170,10 @@ SequenceParse <- function(FASTAList, MotifVector,
     SampleList <- list()
     for (Samples in 1:length(MotifVector)){
       if (length(MotifVector[[Samples]]) != 0){
-        print(MotifVector[[Samples]])
-        
+        if (PrintCNDTN == TRUE){
+          print("Processing...")
+          PrintCNDTN = FALSE
+        }
         #########
         #Need to find a way to do multiple returns in the MotifScan
         #Get Species, Class and Type lists, iterate via the Samples marker
@@ -194,8 +197,6 @@ SequenceParse <- function(FASTAList, MotifVector,
                                strand = Strand, min.score = IdentityScore)
           FrameConv <- as(ScanSeq, "data.frame")
           print(FrameConv)
-          
-          Sys.sleep(2)
           if (length(FrameConv) != 0){
             SubsetVector <- c(FrameConv["start"], FrameConv["end"], FrameConv["relScore"], 
                               FrameConv["ID"], FrameConv["siteSeqs"])
@@ -209,20 +210,23 @@ SequenceParse <- function(FASTAList, MotifVector,
             OrderSubsetFrame <- SubsetFrame[order(SubsetFrame["Score"], decreasing = T),]
             MotifList[[Counter]] <- OrderSubsetFrame
           }else{
-            MotifFrame <- data.frame(
-              Start = NaN,
-              End = NaN,
-              Score = NaN,
-              ID = NaN,
-              Seq = NaN
-            )
-            MotifList[[Counter]] <- OrderSubsetFrame
           }
           Counter = Counter + 1
         }
         MotifFrame <- data.frame(Reduce(rbind, MotifList))
-        MotifFrame <- MotifFrame[order(MotifFrame["Score"], decreasing = T),]
-        row.names(MotifFrame) <- NULL
+        if (length(MotifFrame) != 0){
+          MotifFrame <- MotifFrame[order(MotifFrame["Score"], decreasing = T),]
+          row.names(MotifFrame) <- NULL
+        }else{
+          MotifFrame <- data.frame(
+            Start = NaN,
+            End = NaN,
+            Score = NaN,
+            ID = NaN,
+            Seq = NaN
+          )
+          print()
+        }
         #SampleList will contain 
         SampleList[[Samples]] <- MotifFrame
         #print(MotifFrame)
@@ -321,9 +325,9 @@ ProgramCall <- function(DataBase, SpeciesList, ClassList, NameList,
   return(SequenceParsing)
 }
 Execute <- ProgramCall(DataBase = JASPARDb, SpeciesList = c("Mus musculus", "Homo sapiens"), NameList = c(NA),
-            ClassList = c("all", "C2H2 zinc finger factors"), TypeList = c("ChIP-seq"), TaxonomyList = c(NA),
-            VersionBoolean = F, FASTASeqPath = "FASTAFiles_ImportPath", Strand = "+", 
-            IDScore = 0.8, Seq = FASTAFiles, ExportLocation = "ExportPath")
+            ClassList = c("all", "all"), TypeList = c("ChIP-seq"), TaxonomyList = c(NA),
+            VersionBoolean = F, FASTASeqPath = "F:/R_dir/Processed/Slc32a1/Sequential3/PcCRE_FastaFiles", Strand = "+", 
+            IDScore = 0.8, Seq = FASTAFiles, ExportLocation = "F:/R_dir/Processed/Slc32a1/Sequential3/PcCRE_FastaFiles")
 
 
 
