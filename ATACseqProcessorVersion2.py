@@ -427,7 +427,7 @@ class GetReadCountsPerCCRE(Preprocessing, InheritableSorting, Exports):
             ExportFrame = ExportFrame.fillna(value = "")
             ProcessedFrameList.append(ExportFrame)
         if len(Init.ExportLocation) > 0:
-            self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameList, FileName = "CountsPerCCRE")
+            self.ExportFxn2(Exprt, ExportLocation=Init.ExportLocation, ProcessedFrameLists=ProcessedFrameList, FileName = "CountsPerCCRE")
             return(ProcessedFrameList)
         else:
             return(ProcessedFrameList)
@@ -568,6 +568,7 @@ if __name__ == '__main__':
     parser.add_argument("-E", "--EndCoor", type=int, help="End coordinate of the desired query region", required=True, dest="EndCoordinate")
     parser.add_argument("-Chr", "--Chromosome", type=str, help="Chromosome of the desired query region, input as: 'chr2'", 
                         required=True, dest="Chromosome")
+    parser.add_argument("-Strnd", "--Strand", type=str, help="The strand of interest, +, - or *", required = True, dest = "Strand")
     parser.add_argument("-BS", "--BinSize", metavar="N", type=int, help="Size of the bins in nucleotides. This will be how the query regions is split", 
                         required=False, dest="BinSize")
     parser.add_argument("-CCRES", "--CCREStartCoord", type=CSVConvertIntegers, help="Start Coordinates of the known CCRE's from ENCODE", dest="CCREStart")
@@ -595,7 +596,6 @@ if __name__ == '__main__':
                         required=False, dest="EndAlign")
     parser.add_argument("-Ref", "--ReferenceSequence", type=str, help="A string of the reference sequence to align reads to, i.e.: 'ATTCGACGGGTA'", 
                         required=False, dest="RefSeq", default = [])
-    parser.add_argument("-Strnd", "--Strand", type=str, help="The strand of interest, +, - or *", required = True, dest = "Strand")
     args = parser.parse_args()
     for files in args.files:
         ext = os.path.splitext(files)[-1].lower()
