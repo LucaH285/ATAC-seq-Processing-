@@ -15,6 +15,9 @@ import argparse
 from abc import ABC, abstractmethod
 import pandas as pd
 from ast import literal_eval
+import warnings
+import distutils
+from distutils import util
 #Time is useful for debugging
 import time
 
@@ -166,12 +169,45 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
             if (Diff <= Threshold) and (Condition is True):
                 Ranges.append(X)
                 Condition = False
-            elif (Diff > Threshold) and (Condition is False):
-                Ranges.append(X)
-                Condition = True
+            elif (Diff > Threshold):
+                if (Condition is False):
+                    Ranges.append(X)
+                    Condition = True
+                elif (Condition is True):
+                    Ranges.append(X)
+                    Ranges.append(X + (Threshold - 100))
             elif (Y == Input[len(Input) - 1]):
                 Ranges.append(Y)
         return(Ranges)
+    
+    def ComputeAdjacent(self, InputList, threshold):
+        PCCRECoordsX = []
+        PCCRECoordsY = []
+        Condition = True
+        for Coords1, Coords2 in zip(InputList[:-1], InputList[1:]):
+            #Calculate the difference in bp between the two coordinates,
+            #already sorted in ascending order
+            Difference = Coords2 - Coords1
+            if (Difference <= threshold):
+                if Condition is False:
+                    PCCRECoordsX.append(Coords1 + 1)
+                else:
+                    Condition = False
+                    PCCRECoordsX.append(Coords1)
+                PCCRECoordsY.append(Coords2)
+                
+            elif (Difference > threshold):
+                EndCoordinate = (Coords1 + (threshold - 100))
+                if ((Coords1 == PCCRECoordsY[len(PCCRECoordsY) - 1])):
+                    PCCRECoordsX.append(Coords1 + 1)
+                    PCCRECoordsY.append(Coords1 + 1)
+                else:
+                    PCCRECoordsX.append(Coords1)
+                    PCCRECoordsY.append(EndCoordinate)
+                Condition = True
+        PCCRETuple = [(X, Y) for X, Y in zip(PCCRECoordsX, PCCRECoordsY) if X != Y]
+        return(PCCRETuple, PCCRECoordsX, PCCRECoordsY)
+    
         
     def Vars(self, Init):
         """
@@ -180,9 +216,10 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
         or creating a range of ccres based on their proximity to eachother.
         Proximity is defined by the user and should be close in value to the
         bin size defined in the ATACseq processor (i.e.: if bin size = 100, threshold >100, <=1000; depending on size of query region)
+        and ((PCCRECoordsY[len(PCCRECoordsY) - 1] - PCCRECoordsX[len(PCCRECoordsY) - 1]) <= threshold)
         """
         if len(Init.PotentialCCREList) != 0:
-            global PcCRERanges
+            global PCCRERanges
             if Init.PotentialCCREList[0].endswith(".csv") is True:
                 PCCREs = []
                 for Lists in Init.PotentialCCREList:
@@ -204,15 +241,22 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
                             PCCRERanges_X.append(PcCRERanges[coords])
                         else:
                             PCCRERanges_Y.append(PcCRERanges[coords])
+                    PCCRERanges = [(X, Y) for X, Y in zip(PCCRERanges_X, PCCRERanges_Y)]
                 elif (Init.repeatAreas == "n") or (Init.repeatAreas is None):
                     PcCRERanges = list(set(UnpackPCCRE))
-                    PCCRERanges_X = []
-                    PCCRERanges_Y = []
-                    for coords in range(len(PcCRERanges)):
-                        if coords % 2 == 0:
-                            PCCRERanges_X.append(PcCRERanges[coords])
-                        else:
-                            PCCRERanges_Y.append(PcCRERanges[coords])
+                    sortPCCRE = self.Sort(PcCRERanges)
+                    """
+                    PCCRERanges is a global variable to be used in another class
+                    X, Y ranges are used in this class, hence need to be defined 
+                    in this statement
+                    """
+                    RunFunction = self.ComputeAdjacent(InputList = sortPCCRE, threshold = Init.repeatThreshold)
+                    PCCRERanges_X = RunFunction[1]
+                    PCCRERanges_Y = RunFunction[2]
+                    PCCRERanges = RunFunction[0]
+                    # print(len(PCCRERanges))
+                    # print(RunFunction[0])
+                    # breakpoint()
                 else:
                     raise(TypeError("Error in repeat areas entry must be: 'y' or 'n'"))
             else:
@@ -226,6 +270,7 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
                             PCCRERanges_X.append(PcCRERanges[coords])
                         else:
                             PCCRERanges_Y.append(PcCRERanges[coords])
+                    PCCRERanges = [(X, Y) for X, Y in zip(PCCRERanges_X, PCCRERanges_Y)]
                 elif (Init.repeatAreas == "n") or (Init.repeatAreas is None):
                     PcCRERanges = self.Sort(List = Init.PotentialCCREList)
                     PCCRERanges_X = []
@@ -235,11 +280,13 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
                             PCCRERanges_X.append(PcCRERanges[coords])
                         else:
                             PCCRERanges_Y.append(PcCRERanges[coords])
+                    PCCRERanges = [(X, Y) for X, Y in zip(PCCRERanges_X, PCCRERanges_Y)]
                 else:
                     raise(TypeError("Error in repeat areas entry must be: 'y' or 'n'"))
         else:
-            PcCRERanges = []
+            PCCRERanges = []
         if len(Init.KnownCCREs) != 0:
+            global SortKnown
             if (isinstance(Init.KnownCCREs[0], str) is True):
                 KnownCCRE_X = []
                 KnownCCRE_Y = []
@@ -292,12 +339,14 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
                     if Init.StrandID[Locate] == "-":
                         Reverse = self.RevComp(str(ROI.seq))
                         PcCRERecord = SeqRecord(Seq(Reverse),
-                                                id = "{0}_for_{1}_PotentialCCRE_{2}".format(Init.GeneName, Init.NameList[Locate], rng))
+                        id = "{0}_for_{1}_PotentialCCRE_{2}, size: {3}, start: {4}, end: {5},".format(Init.GeneName, Init.NameList[Locate], rng, len(Reverse), PCCRERanges_X[rng], PCCRERanges_Y[rng]),
+                        description="Potential CCRE, discovered from signal processing NGS read data")
                         RecordsListExport.append(PcCRERecord)
                     elif Init.StrandID[Locate] == "+":
                         Case = self.SeqParsefxn(InputSeq=ROI.seq)
                         PcCRERecord = SeqRecord(Seq(Case), 
-                                                id = "{0}_for_{1}_PotentialCCRE_{2}".format(Init.GeneName, Init.NameList[Locate], rng))
+                        id = "{0}_for_{1}_PotentialCCRE_{2}, size: {3}, start: {4}, end: {5},".format(Init.GeneName, Init.NameList[Locate], rng, len(Case), PCCRERanges_X[rng], PCCRERanges_Y[rng]),
+                        description="Potential CCRE, discovered from signal processing NGS read data")
                         RecordsListExport.append(PcCRERecord)
             if len(SortKnown) != 0:
                 for rng in range(len(SortKnown)):
@@ -305,12 +354,14 @@ class ExportPcCREOnly(InitializeVarsInheritable, RevCompInheritable,
                     if Init.StrandID[Locate] == "-":
                         Reverse = self.RevComp(str(ROI.seq))
                         KCCRERecord = SeqRecord(Seq(Reverse),
-                                                id = "{0}_for_{1}_KnownCCRE_{2}".format(Init.GeneName, Init.NameList[Locate], rng))
+                        id = "{0}_for_{1}_KnownCCRE_{2}, size: {3}, start: {4}, end: {5},".format(Init.GeneName, Init.NameList[Locate], rng, len(Reverse), SortKnown[rng][0], SortKnown[rng][1]),
+                        description="KnownCCRE DNA, derived from ENCODE")
                         KnownCCRERecords.append(KCCRERecord)
                     elif Init.StrandID[Locate] == "+":
                         Case = self.SeqParsefxn(InputSeq=ROI.seq)
                         KCCRERecord = SeqRecord(Seq(Case),
-                                                id = "{0}_for_{1}_KnownCCRE_{2}".format(Init.GeneName, Init.NameList[Locate], rng))
+                        id = "{0}_for_{1}_KnownCCRE_{2}, size: {3}, start: {4}, end: {5},".format(Init.GeneName, Init.NameList[Locate], rng, len(Case), SortKnown[rng][0], SortKnown[rng][1]),
+                        description="KnownCCRE DNA, derived from ENCODE")
                         KnownCCRERecords.append(KCCRERecord)
         ExportLocation = Init.Export + "\PcCRE_FastaFiles"
         ExportLocationKnownCCRE = Init.Export + "\KcCRE_FastaFiles"
@@ -363,13 +414,11 @@ class MousePcCREGenerator(InitializeVarsInheritable, RevCompInheritable, SeqAdju
         Counter = 0
         Conditional = True
         #This is structured wrong
-        if "PcCRERanges" in globals():
+        if "PCCRERanges" in globals():
             AdjustedPCCRETemp = [[], []]
-            for i in range(len(PcCRERanges)):
-                if i % 2 == 0:
-                    AdjustedPCCRETemp[0].append(PcCRERanges[i])
-                else:
-                    AdjustedPCCRETemp[1].append(PcCRERanges[i])
+            for i in range(len(PCCRERanges)):
+                AdjustedPCCRETemp[0].append(PCCRERanges[i][0])
+                AdjustedPCCRETemp[1].append(PCCRERanges[i][1])
             for Rng in range(Init.GeneRegion[Locate][0], Init.GeneRegion[Locate][1]):
                 if Rng == AdjustedPCCRETemp[0][Counter]:
                     if AdjustedPCCRETemp[1][Counter] > Init.GeneRegion[Locate][1]:
@@ -390,12 +439,11 @@ class MousePcCREGenerator(InitializeVarsInheritable, RevCompInheritable, SeqAdju
                 elif Rng < AdjustedPCCRETemp[0][Counter] or Rng >= AdjustedPCCRETemp[1][Counter]:
                     SequenceVector.append("N")
                     if ((Rng == AdjustedPCCRETemp[1][Counter]) and (Counter < (len(AdjustedPCCRETemp[0]) - 1))):
-                        print(AdjustedPCCRETemp)
                         Counter += 1
             PCCREs = "".join(SequenceVector)
             #Its going over the size because you have coordinates larger than the range
             global PCCRERecord
-            PCCRERecord = SeqRecord(Seq(PCCREs), id = "MousePotentialCCRE")
+            PCCRERecord = SeqRecord(Seq(PCCREs), id = "MousePotentialCCRE", description="Unaligned file containing the DNA of the {} organisms, pass through an alignment algorithm to obtain sequence homology".format(len(Init.NameList)))
             if os.path.exists(Init.Export + "\MousePotentialCCRE.fasta") is False:
                 with open(Init.Export + "\MousePotentialCCRE.fasta", "w") as Handle:
                     SeqIO.write(PCCRERecord, Handle, "fasta")
@@ -404,7 +452,49 @@ class MousePcCREGenerator(InitializeVarsInheritable, RevCompInheritable, SeqAdju
             return(PCCREs)
         else:
             return("No PcCREs called")
-    
+
+class LAGANAnnotations(InitializeVarsInheritable):
+    """
+    A class that prepares annotations for the LAGAN Vista 
+    alignment tool, particularly useful if you have a lot of 
+    regions that you want to annotate.
+    """
+    def Vars(self, Init):
+        ComputedPCCRE = []
+        ComputedKCCRE = []
+        if ("SortKnown" in globals()) and ("PCCRERanges" in globals()):
+            if Init.ReferenceAnimal in Init.NameList:    
+                Locate = Init.NameList.index(Init.ReferenceAnimal)
+                StartRange = Init.GeneRegion[Locate][0]
+            else:
+                StartRange = Init.GeneRegion[0][0]
+            for Coords in range(len(PCCRERanges)):
+                NewX = abs(StartRange - PCCRERanges[Coords][0])
+                NewY = abs(StartRange - PCCRERanges[Coords][1])
+                """
+                The designation of UTR and exon for these regions is strictly for 
+                colour coding on LAGAN.
+                """
+                String = (
+                    "> {0} {1} PCCRE{2}".format(NewX, NewY, Coords) + os.linesep + "{0} {1} utr".format(NewX, NewY)
+                    )
+                ComputedPCCRE.append(String)
+            for Coords in range(len(SortKnown)):
+                NewX = abs(StartRange - SortKnown[Coords][0])
+                NewY = abs(StartRange - SortKnown[Coords][1])
+                String = (
+                    "> {0} {1} KCCRE{2}".format(NewX, NewY, Coords) + os.linesep + "{0} {1} exon".format(NewX, NewY)
+                    )
+                ComputedKCCRE.append(String)
+            ExportLocation = Init.Export + "\LAGAN_Annotations.txt"
+            with open(ExportLocation, "w") as TextFile:
+                Master = ComputedPCCRE + ComputedKCCRE
+                for Annotations in Master:
+                    TextFile.write("{}\n".format(Annotations))
+            return(print("Annotations succesfully exported"))
+        else:
+            warnings.warn("Missing PCCRE and/or Known CCRE, passing Annotation export for LAGAN")
+        
 class ExportAllRegions(InitializeVarsInheritable, RevCompInheritable, SeqAdjustInheritable):
     def RevComp(self, InputSeq):
         Reverser = ReverseComplement().ReverseComplementFxn(InputROI=InputSeq)
@@ -426,7 +516,8 @@ class ExportAllRegions(InitializeVarsInheritable, RevCompInheritable, SeqAdjustI
                 if Init.StrandID[FileInd] == "-":
                     print("Initialized Reverse Complement for {}".format(Init.NameList[FileInd]))
                     Reverse = self.RevComp(InputSeq=ROI.seq)
-                    Record = SeqRecord(Seq(Reverse), id = "{}".format(Init.NameList[FileInd]))
+                    Record = SeqRecord(Seq(Reverse), id = "{}".format(Init.NameList[FileInd]),
+                                       description="DNA sequences of the genome query region {}".format(Init.NameList[FileInd]))
                     RecordsList.append(Record)
                     if os.path.exists(Init.Export + "\FASTAFile_{0}, {1}".format(Init.NameList[FileInd], FileInd)) is False:
                         with open(Init.Export + "\FASTAFile_{0}, {1}".format(Init.NameList[FileInd], FileInd), "w") as Handle:
@@ -436,7 +527,8 @@ class ExportAllRegions(InitializeVarsInheritable, RevCompInheritable, SeqAdjustI
                 elif Init.StrandID[FileInd] == "+":
                     CheckCase = self.SeqParsefxn(InputSeq=ROI.seq)
                     ROI = CheckCase
-                    Record = SeqRecord(Seq(ROI), id = "{}".format(Init.NameList[FileInd]))
+                    Record = SeqRecord(Seq(ROI), id = "{}".format(Init.NameList[FileInd]),
+                                       description="DNA sequences of the genome query region {}".format(Init.NameList[FileInd]))
                     RecordsList.append(Record)
                     if os.path.exists(Init.Export + "\FASTAFile_{0}, {1}".format(Init.NameList[FileInd], FileInd)) is False:
                         with open(Init.Export + "\FASTAFile_{0}, {1}".format(Init.NameList[FileInd], FileInd), "w") as Handle:
@@ -450,14 +542,15 @@ class ExportAllRegions(InitializeVarsInheritable, RevCompInheritable, SeqAdjustI
                 MultipleRecords = MultipleSeqAlignment(
                     RecordsList
                     )
+                if os.path.exists(Init.Export + "\Pre_alignedFile.fasta") is False:
+                    with open(Init.Export + "\Pre_alignedFile.fasta", "w") as Handle:
+                        SeqIO.write(MultipleRecords, Handle, "fasta")
+                else:
+                    print("Unaligned file exists, passing")
+                return(MultipleRecords)
             except ValueError:
-                raise()
-            if os.path.exists(Init.Export + "\Pre_alignedFile.fasta") is False:
-                with open(Init.Export + "\Pre_alignedFile.fasta", "w") as Handle:
-                    SeqIO.write(MultipleRecords, Handle, "fasta")
-            else:
-                print("Unaligned file exists, passing")
-            return(MultipleRecords)
+                print("The sequence lengths are not the same, in order to create a multiple alignment file, make sure that all seq lengths are the same")
+                return(RecordsList)
     
 class ClustalOutput(InitializeVarsInheritable, ClustalInheritable):
     def Vars(self, Init):
@@ -516,6 +609,8 @@ if __name__ == '__main__':
                         default="n")
     parser.add_argument("--SeqThreshold", type=int, dest="SeqThreshold", required=False, default=300,
                         help="The sequential threshold value described above, enter as an integer")
+    parser.add_argument("--LAGANAnnotations", type=lambda x:bool(distutils.util.strtobool(x)), default = False, required = False, dest = "LAGANAnno",
+                        help="Creates annotaions for LAGAN-Vista alignment. Output is a txt folder containing the adjusted coordinates for the KCCREs and PCCREs")
     parser.add_argument("--ShowClustal", type=str, dest="ClstlCL", required = False, help = "Show the Clustal command line executable? 'y' or 'n'", default="n")
     args = parser.parse_args()
 
@@ -540,10 +635,12 @@ if __name__ == '__main__':
         Exec = MousePcCREGenerator()
         Exec.Vars(Init)
     
+    if args.LAGANAnno is True:
+        LAGANANNO = LAGANAnnotations()
+        LAGANANNO.Vars(Init)
     
     All = ExportAllRegions()
     All.Vars(Init)
-    
     
     if args.ClstlCL == "y":
         CL = ClustalOmegaCLProtocol()
