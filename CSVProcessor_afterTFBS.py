@@ -6,11 +6,7 @@ Created on Sat Aug 21 00:24:18 2021
 """
 import pandas as pd
 from abc import ABC, abstractmethod
-import itertools
-import time
 import os
-import numpy as np
-# import magic
 
 class InitializeVars:
     def __init__(self):
@@ -158,6 +154,36 @@ class ConvertCoordinates(InitInherit, CoordinatesExtract, Exports):
         ExportFxn2 = ExportClass().ExportFxn(FileName=filename, ExportLocation=location, FrameInputs=frames)
         return(ExportFxn2)
     
+    def LoadFiles_IfPaths(self, InputPaths):
+        StoreFiles = []
+        StoreNames = []
+        for Paths in InputPaths:
+            for Dirs in os.listdir(Paths):
+                Temp = []
+                TempNames = []
+                if os.path.isdir(Paths + "\{}".format(Dirs)) is True:
+                    for SubFiles in os.listdir(Paths + "\{}".format(Dirs)):
+                        if SubFiles.endswith(".csv"):
+                            Path = Paths + "\{0}\{1}".format(Dirs, SubFiles)
+                            Temp.append(pd.read_csv(Path))
+                            TempNames.append(str(SubFiles))
+                    StoreFiles.append(Temp)
+                    StoreNames.append(TempNames)
+        ListOfFrames=StoreFiles
+        filenames=StoreNames
+        return(ListOfFrames, filenames)
+                    
+    def LoadFiles_IfFiles(self, InputPaths):
+        filenames=[]
+        ListOfFrames = [pd.read_csv(Frames) for Frames in InputPaths]
+        return(ListOfFrames, filenames)        
+
+    def FASTA_IfPath(self, FASTApath):
+        return([FASTApath + "\{}".format(Files) for Files in os.listdir(FASTApath) if Files.endswith(".fasta")])
+    
+    def FASTA_IfFiles(self, FASTAfiles):
+        return([files for files in FASTAfiles])
+              
     def AdjustFunction(self, InputFrame, AdjustedCoordinate):
         for Start, End, rng in zip(InputFrame["Start"], InputFrame["End"], InputFrame.index.values):
             AdjustStart = Start + AdjustedCoordinate[0]
@@ -167,45 +193,28 @@ class ConvertCoordinates(InitInherit, CoordinatesExtract, Exports):
         return(InputFrame)
     
     def Vars(self, Init):
-        """
-        While this works well, maybe throw some stuff in some functions and 
-        clean up the code a little. ADD Comments!!
-        """
+        if os.path.isdir(Init.FASTALoc) is True:
+            ListOfFASTA = self.FASTA_IfPath(FASTApath=Init.FASTALoc)
+        elif os.path.isdir(Init.FASTALoc) is False:
+            ListOfFASTA = self.FASTA_IfFiles(FASTApath=Init.FASTALoc)
+        Coords = [self.ExtractCoords(FastaLoc=FASTA) for FASTA in ListOfFASTA]        
         global ListOfFrames
         global filenames
         if os.path.isdir(Init.FileList[0]) is True:
-            ListOfFrames = [[] for _ in range(Init.InSeqNumber)]
-            filenames = [[] for _ in range(Init.InSeqNumber)]
-            Counter = 0
-            for files in os.listdir(Init.FileList[0]):
-                if os.path.isdir(Init.FileList[0] + "\{}".format(files)) is True:
-                    for subfiles in os.listdir(Init.FileList[0] + "\{}".format(files)):
-                        Path = Init.FileList[0] + "\{0}\{1}".format(files, subfiles)
-                        filenames[Counter].append(str(subfiles))
-                        ListOfFrames[Counter].append(pd.read_csv(Path))  
-                    Counter += 1
+            FileLoad = self.LoadFiles_IfPaths(InputPaths=Init.FileList)
+            ListOfFrames = FileLoad[0]
+            filenames = FileLoad[1]
             global AdjustedFrames
             AdjustedFrames = []
             for Frames in range(len(ListOfFrames)):
                 AdjustedFrames += ListOfFrames[Frames]
+            for FrameInd, Ind2, Coords in zip(ListOfFrames, range(len(ListOfFrames)), Coords):
+                for Frames in FrameInd:
+                    self.AdjustFunction(InputFrame=Frames, AdjustedCoordinate=Coords)
         elif os.path.isdir(Init.FileList[0]) is False:
-            filenames = []
-            ListOfFrames = [pd.read_csv(Frames) for Frames in Init.FileList]
-        ListOfFASTA = []
-        Coords = []
-        if os.path.isdir(Init.FASTALoc) is True:
-            for files in os.listdir(Init.FASTALoc):
-                if files.endswith(".fasta"):
-                    ListOfFASTA.append(str(Init.FASTALoc + "\{}".format(files)))
-        elif os.path.isdir(Init.FASTALoc) is False:
-            for files in Init.FASTALoc:
-                ListOfFASTA.append(files)
-        for FASTA in ListOfFASTA:
-            Coords.append(self.ExtractCoords(FastaLoc=FASTA))
-        if os.path.isdir(Init.FileList[0]) is False:
-            for Frames, Coords in zip(ListOfFrames, Coords):
-                self.AdjustFunction(InputFrame=Frames, AdjustedCoordinate=Coords)
-        elif os.path.isdir(Init.FileList[0]) is True:
+            FileLoad = self.LoadFiles_IfFiles(InputPaths=Init.FileList)
+            ListOfFrames = FileLoad[0]
+            filenames = FileLoad[1]
             for FrameInd, Coords in zip(ListOfFrames, Coords):
                 for Frames in FrameInd:
                     self.AdjustFunction(InputFrame=Frames, AdjustedCoordinate=Coords)
@@ -253,20 +262,19 @@ class SubsetHomologousRegions(InitInherit):
             raise(NameError("Error in creating the ListOfFrames global variable"))
         return(SubsetFrames, Indexer)
         
-
 if __name__ == "__main__":
     Init = InitializeVars()
-    Init.populate(CSVFiles=[r"PathForCSVFiles"],
-                   ExportSource=r"ExportPath",
-                   FASTAFiles=r"FastaFileLoc",
-                   organism="Animal", StartCoord = [], 
+    Init.populate(CSVFiles=[r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles"],
+                   ExportSource=r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles\Seq",
+                   FASTAFiles=r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles",
+                   organism="Mouse", StartCoord = [], 
                    EndCoord = [], 
-                   GeneStartCoord=0, InputNumber=0)
+                   GeneStartCoord=0, InputNumber=3)
 
     Cnv = ConvertCoordinates()
     Cnv.Vars(Init)
 
-    if len(Init.StartCoord) != 0 and len(Init.EndCoord) != 0 and Init.GeneStartCoord != 0:
+    if len(Init.StartRegion) != 0 and len(Init.EndRegion) != 0 and Init.GeneStartCoord != 0:
         Extrct = SubsetHomologousRegions()
         Extrct.Vars(Init)
 
