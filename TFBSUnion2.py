@@ -183,10 +183,8 @@ class TFBSMotifs(InheritInitializeVars, InheritExport):
                  
 if __name__=='__main__':
     Init = InitializeVars()
-    Init.populate(["Gad1", "Gad2", "Slc32a1"], Files=[r"F:\R_dir\Processed\Gad1\Outputs\MotifsOfInterest_Human", 
-                                        r"F:\R_dir\Processed\Gad2\Outputs\MotifForHomologusRegions_Human", 
-                                        r"F:\R_dir\Processed\Slc32a1\Outputs\MotifsOfInterest_Human"], Export=r"F:\R_dir\Processed\AnalysisResults", 
-                  ExportName = "MotifsOfInterest_Human_Adjusted")
+    Init.populate(["Gene Names"], Files=[r"Filepath1", r"Filepath2", r"Filepathn"], Export=r"ExportSource", 
+                  ExportName = "MotifsOfInterest_FileName")
     Call = TFBSMotifs()
     Call.InheritInit(Init)
         
