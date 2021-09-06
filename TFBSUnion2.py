@@ -7,6 +7,7 @@ Created on Sat Aug 28 19:25:51 2021
 import pandas as pd
 from abc import ABC, abstractmethod
 import os
+import time
 
 class InitializeVars:
     def __init__(self):
@@ -46,7 +47,8 @@ class TFBSMotifs(InheritInitializeVars, InheritExport):
             for Files in os.listdir(InputPaths[Paths]):
                 if (Files.endswith(".csv") is True):
                     Path = InputPaths[Paths] + "\{}".format(Files)
-                    Frames[Paths].append(pd.read_csv(Path))
+                    Frame = pd.read_csv(Path).drop(["Unnamed: 0"], axis = 1)
+                    Frames[Paths].append(Frame)
         return(Frames)
 
     def LoadFunction_IfFileList(self, InputPaths):
@@ -54,7 +56,72 @@ class TFBSMotifs(InheritInitializeVars, InheritExport):
         for Files, rng in zip(InputPaths, range(len(InputPaths))):
             Frames[rng].append(pd.read_csv(Files))
         return(Frames)
-
+    
+    def SortDictionaries_AsLists(self, InputDictionary, Name):
+        MotifIDs = [ID for ID in InputDictionary]
+        Frequency_FromDict = [InputDictionary[ID] for ID in InputDictionary]
+        Set_Condition = True
+        while(Set_Condition):
+            Set_Condition = False
+            for Rng in range(len(Frequency_FromDict) - 1):
+                if (Frequency_FromDict[Rng] < Frequency_FromDict[Rng + 1]):
+                    Frequency_FromDict[Rng], Frequency_FromDict[Rng + 1] = Frequency_FromDict[Rng + 1], Frequency_FromDict[Rng]
+                    MotifIDs[Rng], MotifIDs[Rng + 1] = MotifIDs[Rng + 1], MotifIDs[Rng]
+                    Set_Condition = True
+        FrameConstructor = {
+            "{}_Motifs".format(Name):MotifIDs,
+            "{}_Counts".format(Name):Frequency_FromDict
+            }
+        DictToFrame = pd.DataFrame(FrameConstructor)
+        return(DictToFrame)
+    
+    def MotifCountsPerGene(self, InputDictList, FrameList, Genes):   
+        """
+        2 parts to this function
+        1: Unpack portion which removes motifs from a dictionary and creates n (where n = gene number) dictionaries that are unncounted
+        2: Use the initial concatted list to recount.
+        """  
+        #Get the number of genes inputted, should equal the number of paths/number of file lists
+        GeneNumbers = len(Genes)          
+        UnpackDicts = [Motifs for Ind in range(len(InputDictList)) for Motifs in InputDictList[Ind]]
+        UnpackedDictionary = {
+            Motifs: 0 for Motifs in UnpackDicts
+            }
+        for Motifs in UnpackDicts:
+            if Motifs in UnpackedDictionary:
+                UnpackedDictionary[Motifs] += 1
+        MotifsToRemove = [Motifs for Motifs in UnpackedDictionary if UnpackedDictionary[Motifs] < GeneNumbers]
+        for Motifs in MotifsToRemove:
+            if Motifs in UnpackedDictionary:
+                del UnpackedDictionary[Motifs]
+        MotifCountsPerGene = []
+        for Frames in FrameList:
+            ResetDictionary = {
+                Motifs: 0 for Motifs in UnpackedDictionary
+                }
+            for ID in Frames["ID"]:
+                if ID in ResetDictionary:
+                    ResetDictionary[ID] += 1
+            MotifCountsPerGene.append(ResetDictionary)
+        return(MotifCountsPerGene)
+    
+    def TotalMotifCount(self, InputDictList, FrameList):
+        """
+        Define an empty list here where dictionaries will be appended to after 
+        some processing
+        """
+        #Create empty Dict
+        ReferenceDictionary = {
+            Motifs: 0 for Motifs in InputDictList[0]
+            }
+        #Populate Empty Dict
+        for Frames in FrameList:
+            for Motifs in Frames["ID"]:
+                if Motifs in ReferenceDictionary:
+                    ReferenceDictionary[Motifs] += 1
+        return(self.SortDictionaries_AsLists(InputDictionary=ReferenceDictionary, Name="Total"))
+             
+                      
     def InheritInit(self, Init):
         """
         1. Create nested lists containing the dataframes of the motifs of interest from each gene 
@@ -70,52 +137,44 @@ class TFBSMotifs(InheritInitializeVars, InheritExport):
             Frames = self.LoadFunction_IfFileList(InputPaths=Init.fileList)
         ConcattedFrames = []
         for geneFiles in Frames:
-            Concat = pd.concat([IndFrames for IndFrames in geneFiles])
+            Concat = pd.concat([IndFrames for IndFrames in geneFiles]).sort_values(by=["Score"], ascending=False).reset_index(drop=True)
+            #There's something wrong here
             ConcattedFrames.append(Concat)
-        ConcattedFrames = [Frames.drop(["Unnamed: 0"], axis=1) for Frames in ConcattedFrames]
         """
         Dictionary used to count the number of motifs appearing in each concatted
         frame
         """
-        MotifDictionary = {
-            Motifs: 1 for Motifs in ConcattedFrames[0]["ID"]
-            } 
-        for Frames in ConcattedFrames[1:]:
-            for MotifIDs in Frames["ID"]:
-                if MotifIDs in MotifDictionary:
-                    MotifDictionary[MotifIDs] += 1
-                elif MotifIDs not in MotifDictionary:
-                    MotifDictionary[MotifIDs] = 1
-        """
-        Remove the motifs that appear less than 2 times. I.e.: the motifs that are unique in
-        a given gene region.
-        """
-        MotifsToRemove = [MotifIDs for MotifIDs in MotifDictionary if MotifDictionary[MotifIDs] < 2]
-        for MotifIDs in MotifsToRemove:
-            del MotifDictionary[MotifIDs]
-        """
-        Sort the dictionary or sort the values in the dictionary by the most frequently occuring motifs
-        """
-        MotifID_FromDict = [IDs for IDs in MotifDictionary]
-        Frequency_FromDict = [MotifDictionary[IDs] for IDs in MotifDictionary]
-        Condition = True
-        while(Condition):
-            Condition = False
-            for rng in range(len(Frequency_FromDict) - 1):
-                if (Frequency_FromDict[rng] < Frequency_FromDict[rng + 1]):
-                    Frequency_FromDict[rng], Frequency_FromDict[rng + 1] = Frequency_FromDict[rng + 1], Frequency_FromDict[rng]
-                    MotifID_FromDict[rng], MotifID_FromDict[rng + 1] = MotifID_FromDict[rng + 1], MotifID_FromDict[rng]
-                    Condition = True
-        ExtractedRows = [Frames.iloc[Rows,] for Frames in ConcattedFrames 
+        MotifDictList = []
+        for Frames in ConcattedFrames:
+            MotifDictionary = {
+                Motifs: 0 for Motifs in Frames["ID"]
+                }
+            for Motifs in Frames["ID"]:
+                if Motifs in MotifDictionary:
+                    MotifDictionary[Motifs] += 1
+            MotifDictList.append(MotifDictionary)
+        #Counts per each gene
+        OverlappingMotifCounts = self.MotifCountsPerGene(MotifDictList, ConcattedFrames, Init.geneNames)
+        #Total counts of motifs
+        #SortDictionaries for total counts of motifs
+        MotifDictionary = self.TotalMotifCount(InputDictList=OverlappingMotifCounts, FrameList=ConcattedFrames)
+        #SortDictionaries for motif counts of each gene
+        FrameList = [self.SortDictionaries_AsLists(InputDictionary=OverlappingMotifCounts[Rng], Name=Init.geneNames[Rng])
+                     for Rng in range(len(OverlappingMotifCounts))]
+        #Extract rows that contain motifs of interest, along with what gene they come from
+        ExtractedRows = [(Frames.iloc[Rows,], Init.geneNames[Rng]) for Frames, Rng in zip(ConcattedFrames, range(len(ConcattedFrames))) 
                          for ID, Rows in zip(Frames["ID"], Frames.index.values)
-                         if ID in MotifID_FromDict]
-        ExtractedRowsFrame = pd.DataFrame(data=ExtractedRows).reset_index(drop=True)
-        ExtractedRowsFrame = ExtractedRowsFrame.sort_values(by=["Score"], ascending=False).reset_index(drop=True)
-        MotifCountFrame = pd.DataFrame(data={
-            "Motifs":MotifID_FromDict,
-            "Frequency":Frequency_FromDict
-            })
-        ConcattedFrame = pd.concat([ExtractedRowsFrame, MotifCountFrame], axis=1).reset_index(drop=True)
+                         if ID in [Motifs for Motifs in MotifDictionary["Total_Motifs"]]]
+        ExtractedRowsFrame = pd.DataFrame(data=[ExtractedRows[Vals][0] for Vals in range(len(ExtractedRows))]).reset_index(drop=True)
+        ExtractedGeneID = pd.DataFrame(data=[ExtractedRows[Gene_ID][1] for Gene_ID in range(len(ExtractedRows))]).reset_index(drop=True)
+        #concat along axis=1 (columns)
+        ConcatFrames = pd.concat([ExtractedGeneID, ExtractedRowsFrame], axis=1)
+        ConcatFrames = ConcatFrames.rename(columns={0:"Gene Names"})
+        ConcatFrames = ConcatFrames.sort_values(by=["Score"], ascending=False).reset_index(drop=True)
+        #Concat Motif counts per gene 
+        MotifCountsPerGene_Concatted = pd.concat([Frames for Frames in FrameList], axis=1)
+        EmptyColumn = pd.Series(" ")
+        ConcattedFrame = pd.concat([ConcatFrames, EmptyColumn, MotifCountsPerGene_Concatted, MotifDictionary], axis=1).reset_index(drop=True)
         ConcattedFrame = ConcattedFrame.fillna("")
         """
         Export Concatted Frame
@@ -127,7 +186,7 @@ if __name__=='__main__':
     Init.populate(["Gad1", "Gad2", "Slc32a1"], Files=[r"F:\R_dir\Processed\Gad1\Outputs\MotifsOfInterest_Human", 
                                         r"F:\R_dir\Processed\Gad2\Outputs\MotifForHomologusRegions_Human", 
                                         r"F:\R_dir\Processed\Slc32a1\Outputs\MotifsOfInterest_Human"], Export=r"F:\R_dir\Processed\AnalysisResults", 
-                  ExportName = "MotifsOfInterest_Human")
+                  ExportName = "MotifsOfInterest_Human_Adjusted")
     Call = TFBSMotifs()
     Call.InheritInit(Init)
         
