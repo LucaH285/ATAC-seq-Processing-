@@ -264,12 +264,12 @@ class SubsetHomologousRegions(InitInherit):
         
 if __name__ == "__main__":
     Init = InitializeVars()
-    Init.populate(CSVFiles=[r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles"],
-                   ExportSource=r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles\Seq",
-                   FASTAFiles=r"F:\R_dir\Processed\Gad2\Outputs\GroupedFASTA\PcCRE_FastaFiles",
-                   organism="Mouse", StartCoord = [], 
+    Init.populate(CSVFiles=[r"CSVFilePath"],
+                   ExportSource=r"ExportSource\Identifier",
+                   FASTAFiles=r"FastaFilePath",
+                   organism="AnimalOfInterest", StartCoord = [], 
                    EndCoord = [], 
-                   GeneStartCoord=0, InputNumber=3)
+                   GeneStartCoord=0, InputNumber=0)
 
     Cnv = ConvertCoordinates()
     Cnv.Vars(Init)
