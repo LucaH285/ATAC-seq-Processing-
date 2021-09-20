@@ -451,42 +451,45 @@ class RemoveKnownCCRE(Preprocessing, Exports, InheritableSorting):
         KnownCCREs = [(X, Y) for X, Y in zip(SortedX, SortedY)]
         IndexList = []
         FrameList = []
-        for InFrames in InputFiles:
-            for cCREs, rng in itertools.product(range(len(KnownCCREs)), InFrames.index.values):
-                StartCoor = InFrames["Genome Range Start Coordinate"][rng]
-                #This difference function calculates the distance
-                #Between the known cCRE and the Bin coordinates
-                DiffX = abs(KnownCCREs[cCREs][0] - StartCoor)
-                DiffY = abs(KnownCCREs[cCREs][1] - StartCoor)
-                # print(KnownCCREs[cCREs][0], KnownCCREs[cCREs][1], StartCoor)
-                # time.sleep(1)
-                if Init.CTCFSiteAsFirstCCRE is False:
-                    if Init.RangeAccount > 0:
-                        if ((DiffX <= Init.RangeAccount) or (DiffY <= Init.RangeAccount)):
-                            IndexList.append(rng)
-                    elif Init.RangeAccount == 0:
-                        if ((StartCoor >= KnownCCREs[cCREs][0]) and (StartCoor <= KnownCCREs[cCREs][1])):
-                            IndexList.append(rng)
-                elif Init.CTCFSiteAsFirstCCRE is True:
-                    if cCREs == 0:
-                        if ((StartCoor >= KnownCCREs[cCREs][0]) and (StartCoor <= KnownCCREs[cCREs][1])):
-                            IndexList.append(rng)
-                    elif cCREs > 0:
+        if InputFiles is not None:
+            for InFrames in InputFiles:
+                for cCREs, rng in itertools.product(range(len(KnownCCREs)), InFrames.index.values):
+                    StartCoor = InFrames["Genome Range Start Coordinate"][rng]
+                    #This difference function calculates the distance
+                    #Between the known cCRE and the Bin coordinates
+                    DiffX = abs(KnownCCREs[cCREs][0] - StartCoor)
+                    DiffY = abs(KnownCCREs[cCREs][1] - StartCoor)
+                    # print(KnownCCREs[cCREs][0], KnownCCREs[cCREs][1], StartCoor)
+                    # time.sleep(1)
+                    if Init.CTCFSiteAsFirstCCRE is False:
                         if Init.RangeAccount > 0:
                             if ((DiffX <= Init.RangeAccount) or (DiffY <= Init.RangeAccount)):
                                 IndexList.append(rng)
                         elif Init.RangeAccount == 0:
                             if ((StartCoor >= KnownCCREs[cCREs][0]) and (StartCoor <= KnownCCREs[cCREs][1])):
                                 IndexList.append(rng)
-        for Frames in InputFiles:
-            if "Sequence" in Frames.columns:
-                Frames = Frames.drop(columns = ["Sequence"])
-                Frames = Frames.drop([i for i in IndexList], axis = 0)
+                    elif Init.CTCFSiteAsFirstCCRE is True:
+                        if cCREs == 0:
+                            if ((StartCoor >= KnownCCREs[cCREs][0]) and (StartCoor <= KnownCCREs[cCREs][1])):
+                                IndexList.append(rng)
+                        elif cCREs > 0:
+                            if Init.RangeAccount > 0:
+                                if ((DiffX <= Init.RangeAccount) or (DiffY <= Init.RangeAccount)):
+                                    IndexList.append(rng)
+                            elif Init.RangeAccount == 0:
+                                if ((StartCoor >= KnownCCREs[cCREs][0]) and (StartCoor <= KnownCCREs[cCREs][1])):
+                                    IndexList.append(rng)
+            for Frames in InputFiles:
+                if "Sequence" in Frames.columns:
+                    Frames = Frames.drop(columns = ["Sequence"])
+                    Frames = Frames.drop([i for i in IndexList], axis = 0)
+                else:
+                    Frames = Frames.drop([i for i in IndexList], axis = 0)
+                FrameList.append(Frames)
+            if len(Init.ExportLocation) > 0:
+                self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameLists=FrameList, FileName="RemovedKnownCCREs")
             else:
-                Frames = Frames.drop([i for i in IndexList], axis = 0)
-            FrameList.append(Frames)
-        if len(Init.ExportLocation) > 0:
-            self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameLists=FrameList, FileName="RemovedKnownCCREs")
+                pass
         else:
             pass
         return(FrameList)
@@ -544,157 +547,217 @@ class ResetCWDToOld:
     def ResetFxn(self, InputCWD):
         return(os.chdir(InputCWD))
 
-if __name__ == '__main__':
-    # class ParserControl:
-    #     """
-    #     If called, ignore parser arguments and run the script in the
-    #     IDE directly
-    #     """
-    #     def VarDefinitionIDE(self, FileList, StartCoord, EndCoord, Chr, Strand, BinSize, CCRES, CCREE,
-    #                         ExportSource, SpreadAccount, Threshold, CTCFSite, AverageFrames, CountSelection,
-    #                         Align, ReferenceSequence, StartAlign, EndAlign):
-    #         Files = FileList,
-
-
-
-    #     def checkCondition(self, Condition):
-    #         #Initiates IDE control
-    #         if (Condition is True):
-    #             Statement = "Initiated IDE control, variables defined in function"
-    #             return(print(Statement))
-    #         #Initiates parser control
-    #         elif (Condition is False):
-    #             #Define Variables Here
-    def CSVConverter(Input, Seperation=",", convType = str):
-        #Should raise an error here
-        Converted = []
-        for Vals in Input.split(Seperation):
-            Converted.append(convType(Vals))
-        return(Converted)
-    
-    def CSVConvertIntegers(Input, Seperation=",", convType = int):
-        Converted = []
-        if (Input.endswith(".csv") or Input.endswith(".txt")):
-            Fxn = [str(Vals) for Vals in Input.split(",")]
-            return(Fxn)
-        else:
+class argumentParser:
+    def useParser(self):
+        def CSVConverter(Input, Seperation=",", convType = str):
+            #Should raise an error here
+            Converted = []
             for Vals in Input.split(Seperation):
                 Converted.append(convType(Vals))
-        return(Converted)
+            return(Converted)
+            
+        def CSVConvertIntegers(Input, Seperation=",", convType = int):
+            Converted = []
+            if (Input.endswith(".csv") or Input.endswith(".txt")):
+                Fxn = [str(Vals) for Vals in Input.split(",")]
+                return(Fxn)
+            else:
+                for Vals in Input.split(Seperation):
+                    Converted.append(convType(Vals))
+            return(Converted)
+        
+        parser = argparse.ArgumentParser(description="ATAC-Seq processor, Version 2.0")
+        parser.add_argument("-l", "--list", help="add Bam file paths",
+                            required=True, type=CSVConverter, dest="files")
+        parser.add_argument("-S", "--StartCoor", type=int, help="Start coordinate of the desired query region",
+                            required=True, dest="StartCoordinate")
+        parser.add_argument("-E", "--EndCoor", type=int, help="End coordinate of the desired query region", required=True, dest="EndCoordinate")
+        parser.add_argument("-Chr", "--Chromosome", type=str, help="Chromosome of the desired query region, input as: 'chr2'",
+                            required=True, dest="Chromosome")
+        parser.add_argument("-Strnd", "--Strand", type=str, help="The strand of interest, +, - or *", required = True, dest = "Strand")
+        parser.add_argument("-BS", "--BinSize", metavar="N", type=int, help="Size of the bins in nucleotides. This will be how the query regions is split",
+                            required=False, dest="BinSize")
+        parser.add_argument("-CCRES", "--CCREStartCoord", type=CSVConvertIntegers, help="Start Coordinates of the known CCRE's from ENCODE", dest="CCREStart")
+        parser.add_argument("-CCREE", "--CCREEndCoord", type=CSVConvertIntegers, help="End Coordinates of the known CCRE's from ENCODE", dest="CCREEnd")
+        parser.add_argument("-Exprt", "--ExportLocation", action="append", help="add export location paths + tissue and PND identifier i.e.: C:\Test\MidbrainPND0",
+                            required=False, metavar="FILE", dest="ExportFile")
+        parser.add_argument("-Sprd", "--Spread", metavar="N", type=int, help="Value accounting for the possible spread of open chromatin surrounding a CCRE, in nt",
+                            required=False, dest="SpreadAccount", default=0)
+        parser.add_argument("-Thresh", "--Threshold", metavar="N", type=float,
+                            help="Value for the the CounReadsByGrouping function, assigns how the fraction of the read needed to overlap with an adjacent bin in order to be a part of it",
+                            required=True, dest="Threshold", default=0.33)
+        parser.add_argument("-CTCF", "--FirstCCREasCTCFSite",
+                            help="Processes the first CCRE as a CTCF binding site. May be important for genes with small 5' intergenic regions. Ignores the --Spread value for the first CCRE",
+                            required=False, dest="BoolValCTCF", type=lambda x:bool(distutils.util.strtobool(x)), default=False)
+        parser.add_argument("-Avg", "--AverageFrames",
+                            help="Average the input files", type=lambda x:bool(distutils.util.strtobool(x)),
+                            dest="AvgFrames", required=False, default=False)
+        parser.add_argument("-Counts", "--GroupingFunction", type=str, help="Select the grouping function to use, either 'direct' or 'rounding'", required=True,
+                            dest = "CountSelection")
+        parser.add_argument("-A", "--Align", required=True,
+                            help="string to perform alignment on reads: 'y' or 'n'", dest = "PerformAlign", type=str)
+        parser.add_argument("-SA", "--StartAlign", metavar="N", type=int, help="Start coordinate of the alignment region",
+                            required=False, dest="StartAlign")
+        parser.add_argument("-EA", "--EndAlign", metavar="N", type=int, help="End coordinate of the alignment region",
+                            required=False, dest="EndAlign")
+        parser.add_argument("-Ref", "--ReferenceSequence", type=str, help="A string of the reference sequence to align reads to, i.e.: 'ATTCGACGGGTA'",
+                            required=False, dest="RefSeq", default = [])
+        args = parser.parse_args()
+        return(args)
     
-    parser = argparse.ArgumentParser(description="ATAC-Seq processor, Version 2.0")
-    parser.add_argument("-l", "--list", help="add Bam file paths",
-                        required=True, type=CSVConverter, dest="files")
-    parser.add_argument("-S", "--StartCoor", type=int, help="Start coordinate of the desired query region",
-                        required=True, dest="StartCoordinate")
-    parser.add_argument("-E", "--EndCoor", type=int, help="End coordinate of the desired query region", required=True, dest="EndCoordinate")
-    parser.add_argument("-Chr", "--Chromosome", type=str, help="Chromosome of the desired query region, input as: 'chr2'",
-                        required=True, dest="Chromosome")
-    parser.add_argument("-Strnd", "--Strand", type=str, help="The strand of interest, +, - or *", required = True, dest = "Strand")
-    parser.add_argument("-BS", "--BinSize", metavar="N", type=int, help="Size of the bins in nucleotides. This will be how the query regions is split",
-                        required=False, dest="BinSize")
-    parser.add_argument("-CCRES", "--CCREStartCoord", type=CSVConvertIntegers, help="Start Coordinates of the known CCRE's from ENCODE", dest="CCREStart")
-    parser.add_argument("-CCREE", "--CCREEndCoord", type=CSVConvertIntegers, help="End Coordinates of the known CCRE's from ENCODE", dest="CCREEnd")
-    parser.add_argument("-Exprt", "--ExportLocation", action="append", help="add export location paths + tissue and PND identifier i.e.: C:\Test\MidbrainPND0",
-                        required=False, metavar="FILE", dest="ExportFile")
-    parser.add_argument("-Sprd", "--Spread", metavar="N", type=int, help="Value accounting for the possible spread of open chromatin surrounding a CCRE, in nt",
-                        required=False, dest="SpreadAccount", default=0)
-    parser.add_argument("-Thresh", "--Threshold", metavar="N", type=float,
-                        help="Value for the the CounReadsByGrouping function, assigns how the fraction of the read needed to overlap with an adjacent bin in order to be a part of it",
-                        required=True, dest="Threshold", default=0.33)
-    parser.add_argument("-CTCF", "--FirstCCREasCTCFSite",
-                        help="Processes the first CCRE as a CTCF binding site. May be important for genes with small 5' intergenic regions. Ignores the --Spread value for the first CCRE",
-                        required=False, dest="BoolValCTCF", type=lambda x:bool(distutils.util.strtobool(x)), default=False)
-    parser.add_argument("-Avg", "--AverageFrames",
-                        help="Average the input files", type=lambda x:bool(distutils.util.strtobool(x)),
-                        dest="AvgFrames", required=False, default=False)
-    parser.add_argument("-Counts", "--GroupingFunction", type=str, help="Select the grouping function to use, either 'direct' or 'rounding'", required=True,
-                        dest = "CountSelection")
-    parser.add_argument("-A", "--Align", required=True,
-                        help="string to perform alignment on reads: 'y' or 'n'", dest = "PerformAlign", type=str)
-    parser.add_argument("-SA", "--StartAlign", metavar="N", type=int, help="Start coordinate of the alignment region",
-                        required=False, dest="StartAlign")
-    parser.add_argument("-EA", "--EndAlign", metavar="N", type=int, help="End coordinate of the alignment region",
-                        required=False, dest="EndAlign")
-    parser.add_argument("-Ref", "--ReferenceSequence", type=str, help="A string of the reference sequence to align reads to, i.e.: 'ATTCGACGGGTA'",
-                        required=False, dest="RefSeq", default = [])
-    args = parser.parse_args()
-    for files in args.files:
-        ext = os.path.splitext(files)[-1].lower()
-        if str(ext) != ".bam":
-            raise(ValueError("Bam file not entered, please check your inputs. The only NGS data structures currently supported are files ending with .bam"))
-        if not os.path.exists(files):
-            raise(FileNotFoundError("{0} Does not exist, please check your input".format(files)))
-    BamFiles = args.files
-    StartCoordinate = args.StartCoordinate
-    EndCoordinate = args.EndCoordinate
-    Chromosome = args.Chromosome
-    if args.BinSize is None:
-        BinSize = 100
-        warnings.warn("No BinSize value entered, set to default: 100nt")
-    else:
-        BinSize = args.BinSize
-    if ((len(args.CCREStart) != len(args.CCREEnd)) or (len(args.CCREStart) == 0 or len(args.CCREEnd) == 0)) :
-        raise(ValueError("Coordinate mismatch in the inputted CCREs, check inputs. Make sure that the start and end coordiantes are entered correctly"))
-    else:
-        KnownCCRE = [(x, y) for x, y in zip(args.CCREStart, args.CCREEnd)]
-    if args.ExportFile is not None:
-        ExportFile = args.ExportFile
-    else:
-        warnings.warn("No Export file(s) inputted")
-        ExportFile = []
-    Spread = args.SpreadAccount
-    Threshold = args.Threshold
-    if args.BoolValCTCF is None:
-        warnings.warn("No Bool val for CTCF entered, default is False")
-        Boolean = False
-    else:
-        Boolean = bool(args.BoolValCTCF)
-    if args.AvgFrames is None:
-        warnings.warn("No Bool val for Average Frames, default is False")
-        AverageFrames = False
-    else:
-        AverageFrames = bool(args.AvgFrames)
-    Strand = args.Strand
-    Init = InitializeVars()
-    Init.populate(List = BamFiles, Start = StartCoordinate, Strnd=Strand, Bool = Boolean,
-                  End = EndCoordinate, Chromosome = Chromosome, BinSize = BinSize, AverageFrames = AverageFrames,
-                  Thresh = Threshold, Export = ExportFile, CCREs = KnownCCRE, AccountForOpenSpread = Spread)
-    
-    Sort = Sorters()
-    Exprt = ExportClass()
-    Stats = Statistics()
-    
-    if str(args.CountSelection) != "direct" and str(args.CountSelection) != "rounding":
-        raise(NameError("Please chose either 'direct' or 'rounding'. Ensure all characters are lower case"))
-    else:
-        global Process
-        if str(args.CountSelection) == "direct":
-            Process = CountReadsDirectly().VarLoads(Init)
-        elif str(args.CountSelection) == "rounding":
-            # global Process
-            Process = CountReadsByGrouping().VarLoads(Init)
-    
-    ReadCountsCCRE = GetReadCountsPerCCRE()
-    ReadCountsCCRE.VarLoads(Init, InputFiles = Process)
-    
-    Sts = StatisticalProcessing()
-    Sts.StatisticalFunctions(Stats, Inputs = RemoveKnownCCRE().VarLoads(Init, InputFiles = Process))
-    
-    if args.PerformAlign == "y":
-        Start = args.StartAlign
-        End = args.EndAlign
-        RefSeq = args.RefSeq
-        Align = AlignReads()
-        Align.populate(AlignmentStart=Start, AlignmentEnd=End, ReferenceSequence=RefSeq)
-        AlignFxn = ReadAlignment()
-        AlignFxn.ReadAlign(Align)
-    elif args.PerformAlign == "n":
+    def useIDE(self):
+        print("Run Function Initiated")
         pass
-    else:
-        raise(TypeError("Please enter either 'y' for yes or 'n' in the -A option for alignments"))
+ 
+def main():
+    pass
+        
+if __name__ == '__main__':
+    arg = argumentParser()
+    #############
+    #Set decision to use IDE or CLI here
+    #Options: useIDE or useCLI. DEFAULT == useCLI
+    #############
+    Set_parser = "useIDE"
+    if Set_parser == "useCLI":
+        args = arg.useParser()
+        for files in args.files:
+            ext = os.path.splitext(files)[-1].lower()
+            if str(ext) != ".bam":
+                raise(ValueError("Bam file not entered, please check your inputs. The only NGS data structures currently supported are files ending with .bam"))
+            if not os.path.exists(files):
+                raise(FileNotFoundError("{0} Does not exist, please check your input".format(files)))
+        
+        BamFiles = args.files
+        StartCoordinate = args.StartCoordinate
+        EndCoordinate = args.EndCoordinate
+        Chromosome = args.Chromosome
+        if args.BinSize is None:
+            BinSize = 100
+            warnings.warn("No BinSize value entered, set to default: 100nt")
+        else:
+            BinSize = args.BinSize
     
-    if "CWD" in globals():
-        ResetCWDToOld().ResetFxn(InputCWD=CWD)
-    # Check = ParserControl()
-    # Check.checkCondition(Condition=False)
+        if (args.CCREStart is None) or (args.CREEnd is None) :
+            warnings.warn("Either No CCRE's entered, or missing values for CCRE Start/End Coordinates")
+            KnownCCRE = [(0, 0)]
+        elif ((len(args.CCREStart) != len(args.CCREEnd))):
+            raise(ValueError("Coordinate mismatch in the inputted CCREs, check inputs. Make sure that the start and end coordiantes are entered correctly"))
+        else:
+            KnownCCRE = [(x, y) for x, y in zip(args.CCREStart, args.CCREEnd)]    
+            
+        if args.ExportFile is not None:
+            ExportFile = args.ExportFile
+        else:
+            warnings.warn("No Export file(s) inputted")
+            ExportFile = []
+        Spread = args.SpreadAccount
+        Threshold = args.Threshold
+        if args.BoolValCTCF is None:
+            warnings.warn("No Bool val for CTCF entered, default is False")
+            Boolean = False
+        else:
+            Boolean = bool(args.BoolValCTCF)
+        if args.AvgFrames is None:
+            warnings.warn("No Bool val for Average Frames, default is False")
+            AverageFrames = False
+        else:
+            AverageFrames = bool(args.AvgFrames)
+        Strand = args.Strand
+        Init = InitializeVars()
+        Init.populate(List = BamFiles, Start = StartCoordinate, Strnd=Strand, Bool = Boolean,
+                      End = EndCoordinate, Chromosome = Chromosome, BinSize = BinSize, AverageFrames = AverageFrames,
+                      Thresh = Threshold, Export = ExportFile, CCREs = KnownCCRE, AccountForOpenSpread = Spread)
+        
+        Sort = Sorters()
+        Exprt = ExportClass()
+        Stats = Statistics()
+        
+        if str(args.CountSelection) != "direct" and str(args.CountSelection) != "rounding":
+            raise(NameError("Please chose either 'direct' or 'rounding'. Ensure all characters are lower case"))
+        else:
+            global Process
+            if str(args.CountSelection) == "direct":
+                Process = CountReadsDirectly().VarLoads(Init)
+            elif str(args.CountSelection) == "rounding":
+                # global Process
+                Process = CountReadsByGrouping().VarLoads(Init)
+        ReadCountsCCRE = GetReadCountsPerCCRE()
+        ReadCountsCCRE.VarLoads(Init, InputFiles = Process)
+        
+        Sts = StatisticalProcessing()
+        Sts.StatisticalFunctions(Stats, Inputs = RemoveKnownCCRE().VarLoads(Init, InputFiles = Process))
+        
+        if args.PerformAlign == "y":
+            Start = args.StartAlign
+            End = args.EndAlign
+            RefSeq = args.RefSeq
+            Align = AlignReads()
+            Align.populate(AlignmentStart=Start, AlignmentEnd=End, ReferenceSequence=RefSeq)
+            AlignFxn = ReadAlignment()
+            AlignFxn.ReadAlign(Align)
+        elif args.PerformAlign == "n":
+            pass
+        else:
+            raise(TypeError("Please enter either 'y' for yes or 'n' in the -A option for alignments"))
+    
+        if "CWD" in globals():
+            ResetCWDToOld().ResetFxn(InputCWD=CWD)
+    elif Set_parser == "useIDE":
+        args = arg.useIDE()
+        #Initialize __init__ and populate the variables with user defined vars
+        Init = InitializeVars()
+        ###################
+        #Add in your inputs here
+        #Default values are already set, empty strings or 0 values are vars to be populated
+        ###################
+        Init.populate(List=[], 
+                      Start=0, End=0, Strnd="", Bool=False,
+                      Chromosome="", BinSize=100, AverageFrames=False, Thresh=0.33,
+                      Export=r"", 
+                      CCREs=[(0,0)], 
+                      AccountForOpenSpread=500)
+        
+        Sort = Sorters()
+        Exprt = ExportClass()
+        Stats = Statistics()
+        
+        ###################
+        #Count selection - choose to process reads directly or by rounding them to the nearest bin
+        ###################
+        CountSelection = "rounding"
+        if CountSelection == "rounding":
+            Process = CountReadsByGrouping().VarLoads(Init)
+        elif CountSelection == "direct":
+            Process = CountReadsDirectly().VarLoads(Init)
+        ReadCountsCCRE = GetReadCountsPerCCRE()
+        ReadCountsCCRE.VarLoads(Init, InputFiles = Process)
+        
+        ###################
+        #Load Stats functions
+        ###################
+        Sts = StatisticalProcessing()
+        Sts.StatisticalFunctions(Stats, Inputs = RemoveKnownCCRE().VarLoads(Init, InputFiles = Process))
+        
+        ###################
+        #Set Alignment
+        ###################
+        PerformAlign = "n"
+        if PerformAlign == "y":
+            Start = 0
+            End = 0
+            RefSeq = ""
+            Align = AlignReads()
+            Align.populate(AlignmentStart=Start, AlignmentEnd=End, ReferenceSequence=RefSeq)
+            AlignFxn = ReadAlignment()
+            AlignFxn.ReadAlign(Align)
+        elif PerformAlign == "n":
+            pass
+        else:
+            raise(TypeError("Please enter either 'y' for yes or 'n' in the PerformAlign for alignments"))
+    
+        if "CWD" in globals():
+            ResetCWDToOld().ResetFxn(InputCWD=CWD)
+    main()
+    
+
