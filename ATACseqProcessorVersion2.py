@@ -181,6 +181,13 @@ class Statistics:
         MaxK = max(InputFrame["Reads per region"])
         ProbabilitVector = [nbinom.pmf(range(MinK, MaxK), n = N, p = Prob)]
         return("Not yet finished")
+    
+    def normalityModel(self, InputFrame):
+        """
+        Call with direct 
+        """
+        print(InputFrame)
+        breakpoint()
 
 class Preprocessing(ABC):
     @abstractmethod
@@ -383,8 +390,10 @@ class CountReadsDirectly(Preprocessing):
             ProcessedFrameList.append(ProcessedFrame)
         if len(Init.ExportLocation) > 0:
             self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameList, FileName = "DirectCounts")
+            return(ProcessedFrameList)
         else:
-            pass
+            return(ProcessedFrameList)
+        
 
 class GetReadCountsPerCCRE(Preprocessing, InheritableSorting, Exports):
     def Sorting(self, Sort, List1):
@@ -431,9 +440,9 @@ class GetReadCountsPerCCRE(Preprocessing, InheritableSorting, Exports):
             ProcessedFrameList.append(ExportFrame)
         if len(Init.ExportLocation) > 0:
             self.ExportFxn2(Exprt, ExportLocation=Init.ExportLocation, ProcessedFrameLists=ProcessedFrameList, FileName = "CountsPerCCRE")
-            return(ProcessedFrameList)
         else:
-            return(ProcessedFrameList)
+            pass
+        return(ProcessedFrameList)
 
 class RemoveKnownCCRE(Preprocessing, Exports, InheritableSorting):
     def ExportFxn2(self, Exprt, ExportLocation, ProcessedFrameLists, FileName):
@@ -618,7 +627,7 @@ if __name__ == '__main__':
     #Set decision to use IDE or CLI here
     #Options: useIDE or useCLI. DEFAULT == useCLI
     #############
-    Set_parser = "useIDE"
+    Set_parser = "useCLI"
     if Set_parser == "useCLI":
         args = arg.useParser()
         for files in args.files:
@@ -638,7 +647,7 @@ if __name__ == '__main__':
         else:
             BinSize = args.BinSize
     
-        if (args.CCREStart is None) or (args.CREEnd is None) :
+        if (args.CCREStart is None) or (args.CCREEnd is None) :
             warnings.warn("Either No CCRE's entered, or missing values for CCRE Start/End Coordinates")
             KnownCCRE = [(0, 0)]
         elif ((len(args.CCREStart) != len(args.CCREEnd))):
@@ -703,6 +712,7 @@ if __name__ == '__main__':
     
         if "CWD" in globals():
             ResetCWDToOld().ResetFxn(InputCWD=CWD)
+            
     elif Set_parser == "useIDE":
         args = arg.useIDE()
         #Initialize __init__ and populate the variables with user defined vars
@@ -711,11 +721,22 @@ if __name__ == '__main__':
         #Add in your inputs here
         #Default values are already set, empty strings or 0 values are vars to be populated
         ###################
-        Init.populate(List=[], 
-                      Start=0, End=0, Strnd="", Bool=False,
-                      Chromosome="", BinSize=100, AverageFrames=False, Thresh=0.33,
-                      Export=r"", 
-                      CCREs=[(0,0)], 
+        #Set CCREs here, in any order
+        CCREList = [22618059,22620124,22620525,22620925,22621289,22621644,22621971,22622347,22623005,22623238,22623473,
+                             22623833,22624142,22624636,22625172,22625544,22627266,22627922,22634813,22646161,22671008,22671524,
+                             22618244,22620282,22620867,22621232,22621628,22621942,22622228,22622624,22623225,22623466,22623688,22624111,
+                             22624360,22624897,22625505,22625892,22627514,22628230,22635078,22646505,22671251,22671685]
+        
+        CCREList.sort()
+        CCRE_StartCoords = [CCREList[x] for x in range(len(CCREList)) if x % 2 == 0]
+        CCRE_EndCoords = [CCREList[y] for y in range(len(CCREList)) if y % 2 != 0]
+        KnownCCREs = [(x, y) for x, y in zip(CCRE_StartCoords, CCRE_EndCoords)]
+
+        Init.populate(List=[r"F:\R_dir\ATAC_forebrain_PND0\Replicate 1\ENCFF879DTA.bam"], 
+                      Start=22618000, End=22634000, Strnd="+", Bool=True,
+                      Chromosome="chr2", BinSize=100, AverageFrames=False, Thresh=0.33,
+                      Export=r"F:\R_dir\Sample\TestSample1", 
+                      CCREs=KnownCCREs, 
                       AccountForOpenSpread=500)
         
         Sort = Sorters()
@@ -725,7 +746,7 @@ if __name__ == '__main__':
         ###################
         #Count selection - choose to process reads directly or by rounding them to the nearest bin
         ###################
-        CountSelection = "rounding"
+        CountSelection = "direct"
         if CountSelection == "rounding":
             Process = CountReadsByGrouping().VarLoads(Init)
         elif CountSelection == "direct":
@@ -755,7 +776,9 @@ if __name__ == '__main__':
             pass
         else:
             raise(TypeError("Please enter either 'y' for yes or 'n' in the PerformAlign for alignments"))
-    
+        ###################
+        #Reset working directory to original
+        ###################
         if "CWD" in globals():
             ResetCWDToOld().ResetFxn(InputCWD=CWD)
     main()
