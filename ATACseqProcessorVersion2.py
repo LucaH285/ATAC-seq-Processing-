@@ -220,26 +220,42 @@ class BamFileLoads(Preprocessing):
         global FrameList
         FrameList = []
         DictionaryList = []
+        #First create the index files, if needed
         for Files in range(len(Init.Bam_file_list)):
+            #I need to change this
+            global CWD
+            CWD = os.getcwd()
+            Split = Init.Bam_file_list[Files].split('\\')
+            os.chdir(Split[0])
+            Bam = bs.AlignmentFile(Init.Bam_file_list[Files], "rb")
             try:
-                Bam = bs.AlignmentFile(Init.Bam_file_list[Files], "rb")
+                BamDict = {"read_lis": [], "read_info": [], "mapq_lis": [], "seq_lis": [], "width_lis": []}
+                for Reads in Bam.fetch(Init.Chr, Init.GenomeStartRange, Init.GenomeEndRange):
+                    BamDict["read_lis"].append((Reads.reference_start, Reads.reference_end))
+                    BamDict["read_info"].append(Reads.is_reverse)
+                    BamDict["mapq_lis"].append(Reads.mapq)
+                    BamDict["seq_lis"].append(Reads.seq)
+                    BamDict["width_lis"].append(Reads.reference_length)
+                DictionaryList.append(BamDict)
             except ValueError:
+                print("No bai file found for {}, creating bai index file...".format(Init.Bam_file_list[Files]))
                 try:
-                    global CWD
-                    CWD = os.getcwd()
-                    Split = Init.Bam_file_list[Files].split('\\')
-                    os.chdir(Split[0])
-                    Bam = bs.AlignmentFile(Init.Bam_file_list[Files], "rb")
-                except ValueError:
-                    break
-            BamDict = {"read_lis": [], "read_info": [], "mapq_lis": [], "seq_lis": [], "width_lis": []}
-            for Reads in Bam.fetch(Init.Chr, Init.GenomeStartRange, Init.GenomeEndRange):
-                BamDict["read_lis"].append((Reads.reference_start, Reads.reference_end))
-                BamDict["read_info"].append(Reads.is_reverse)
-                BamDict["mapq_lis"].append(Reads.mapq)
-                BamDict["seq_lis"].append(Reads.seq)
-                BamDict["width_lis"].append(Reads.reference_length)
-            DictionaryList.append(BamDict)
+                    from rpy2 import robjects
+                    from rpy2.robjects.packages import importr
+                    import rpy2.rinterface
+                    base = importr('base')
+                    utils = importr('utils')
+                    #Adjust Path to be compatible with R
+                    Path = Init.Bam_file_list[Files].split(sep="\\")
+                    PathJoined = "/".join(Path)
+                    Glb = robjects.globalenv['Object'] = PathJoined
+                    Lib = robjects.r('library(Rsamtools)')
+                    Fxn = robjects.r('indexBam(Object)')
+                except:
+                    raise(TypeError("""
+                        Please either install rpy2 from anaconda, and if you've done so and this error appears, or JIT failure error, 
+                        please add rpy2 to your %PATH%, see: https://jianghaochu.github.io/how-to-install-rpy2-in-windows-10.html"
+                        """))
         for Dicts in DictionaryList:
             Structure = {
                 "Mapq":Dicts["mapq_lis"],
