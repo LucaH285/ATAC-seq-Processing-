@@ -13,42 +13,19 @@ import pandas as pd
 import numpy as np
 from Bio import pairwise2
 from Bio.pairwise2 import format_alignment
-import matplotlib.pyplot as mp
-import seaborn as sns
 import bamnostic as bs
 import os
-import math
 from abc import ABC, abstractmethod
 import itertools
 import argparse
 import warnings
-from distutils import util
 import distutils
 from scipy.stats import nbinom
-import sys
-import logging
-from logging import critical, error, info, warning, debug
 #Only for debugging:
 import time
 
 class InitializeVars:
-    def __init__(self):
-        self.Bam_file_list = []
-        self.GenomeStartRange = 0
-        self.GenomeEndRange = 0
-        self.Chr = ""
-        self.BinSize = 0
-        self.InputFrames = []
-        self.BinnedGenome = []
-        self.Threshold = 0
-        self.Strand = ""
-        self.ExportLocation = []
-        self.KnownCCRE = []
-        self.RangeAccount = 0
-        self.CTCFSiteAsFirstCCRE = True
-        self.CreateAverageFrameFromFrames = True
-
-    def populate(self, List, Start, End,
+    def __init__(self, List, Start, End,
                  Chromosome, BinSize, Thresh,
                  Strnd, Export, CCREs, AccountForOpenSpread,
                  Bool, AverageFrames):
@@ -64,18 +41,14 @@ class InitializeVars:
         self.RangeAccount = AccountForOpenSpread
         self.CTCFSiteAsFirstCCRE = Bool
         self.CreateAverageFrameFromFrames = AverageFrames
+        self.InputFrames = []
+        self.BinnedGenome = []
 
 class AlignReads:
-    def __init__(self):
-            self.AlignStart = 0
-            self.AlignEnd = 0
-            self.ReferenceSequence = ""
-
-    def populate(self, AlignmentStart, AlignmentEnd, ReferenceSequence):
+    def __init__(self, AlignmentStart, AlignmentEnd, ReferenceSequence):
             self.AlignStart = AlignmentStart
             self.AlignEnd = AlignmentEnd
             self.RefSeq = ReferenceSequence
-
 class Sorters:
     def GeneralSorting(self, List):
         Condition = True
@@ -633,9 +606,6 @@ class argumentParser:
     def useIDE(self):
         print("Run Function Initiated")
         pass
- 
-def main():
-    pass
         
 if __name__ == '__main__':
     arg = argumentParser()
@@ -689,10 +659,11 @@ if __name__ == '__main__':
         else:
             AverageFrames = bool(args.AvgFrames)
         Strand = args.Strand
-        Init = InitializeVars()
-        Init.populate(List = BamFiles, Start = StartCoordinate, Strnd=Strand, Bool = Boolean,
-                      End = EndCoordinate, Chromosome = Chromosome, BinSize = BinSize, AverageFrames = AverageFrames,
-                      Thresh = Threshold, Export = ExportFile, CCREs = KnownCCRE, AccountForOpenSpread = Spread)
+        Init = InitializeVars(
+            List = BamFiles, Start = StartCoordinate, Strnd=Strand, Bool = Boolean,
+            End = EndCoordinate, Chromosome = Chromosome, BinSize = BinSize, AverageFrames = AverageFrames,
+            Thresh = Threshold, Export = ExportFile, CCREs = KnownCCRE, AccountForOpenSpread = Spread
+            )
         
         Sort = Sorters()
         Exprt = ExportClass()
@@ -717,8 +688,11 @@ if __name__ == '__main__':
             Start = args.StartAlign
             End = args.EndAlign
             RefSeq = args.RefSeq
-            Align = AlignReads()
-            Align.populate(AlignmentStart=Start, AlignmentEnd=End, ReferenceSequence=RefSeq)
+            Align = AlignReads(
+                AlignmentStart=Start, 
+                AlignmentEnd=End, 
+                ReferenceSequence=RefSeq
+                )
             AlignFxn = ReadAlignment()
             AlignFxn.ReadAlign(Align)
         elif args.PerformAlign == "n":
@@ -731,8 +705,6 @@ if __name__ == '__main__':
             
     elif Set_parser == "useIDE":
         args = arg.useIDE()
-        #Initialize __init__ and populate the variables with user defined vars
-        Init = InitializeVars()
         ###################
         #Add in your inputs here
         #Default values are already set, empty strings or 0 values are vars to be populated
@@ -748,13 +720,15 @@ if __name__ == '__main__':
         CCRE_EndCoords = [CCREList[y] for y in range(len(CCREList)) if y % 2 != 0]
         KnownCCREs = [(x, y) for x, y in zip(CCRE_StartCoords, CCRE_EndCoords)]
 
-        Init.populate(List=[r"F:\R_dir\ATAC_forebrain_PND0\Replicate 1\ENCFF879DTA.bam"], 
-                      Start=22618000, End=22634000, Strnd="+", Bool=True,
-                      Chromosome="chr2", BinSize=100, AverageFrames=False, Thresh=0.33,
-                      Export=r"F:\R_dir\Sample\TestSample1", 
-                      CCREs=KnownCCREs, 
-                      AccountForOpenSpread=500)
-        
+        #Initialize __init__ and populate the variables with user defined vars
+        Init = InitializeVars(
+            List=[r"F:\R_dir\ATAC_forebrain_PND0\Replicate 1\ENCFF879DTA.bam"], 
+            Start=22618000, End=22634000, Strnd="+", Bool=True,
+            Chromosome="chr2", BinSize=100, AverageFrames=False, Thresh=0.33,
+            Export=r"F:\R_dir\Sample\TestSample1", 
+            CCREs=KnownCCREs, 
+            AccountForOpenSpread=500
+        )
         Sort = Sorters()
         Exprt = ExportClass()
         Stats = Statistics()
@@ -784,8 +758,11 @@ if __name__ == '__main__':
             Start = 0
             End = 0
             RefSeq = ""
-            Align = AlignReads()
-            Align.populate(AlignmentStart=Start, AlignmentEnd=End, ReferenceSequence=RefSeq)
+            Align = AlignReads(
+                AlignmentStart=Start, 
+                AlignmentEnd=End, 
+                ReferenceSequence=RefSeq
+                )
             AlignFxn = ReadAlignment()
             AlignFxn.ReadAlign(Align)
         elif PerformAlign == "n":
@@ -797,6 +774,5 @@ if __name__ == '__main__':
         ###################
         if "CWD" in globals():
             ResetCWDToOld().ResetFxn(InputCWD=CWD)
-    main()
-    
+
 
