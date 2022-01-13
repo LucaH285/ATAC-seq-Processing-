@@ -24,6 +24,20 @@ from scipy.stats import nbinom
 #Only for debugging:
 import time
 
+###################
+#A method constant variable
+#to be used only when wanting
+#to test/run files through the 
+#IDE instead of the CLI.
+#
+#Can be useful if you want to 
+#test your files. 
+#Default is to use the CLI
+###################
+VARLOAD_METHOD = "useIDE"
+
+CWD = os.getcwd()
+
 class InitializeVars:
     def __init__(self, List, Start, End,
                  Chromosome, BinSize, Thresh,
@@ -49,6 +63,7 @@ class AlignReads:
             self.AlignStart = AlignmentStart
             self.AlignEnd = AlignmentEnd
             self.RefSeq = ReferenceSequence
+            
 class Sorters:
     def GeneralSorting(self, List):
         Condition = True
@@ -195,9 +210,8 @@ class BamFileLoads(Preprocessing):
         DictionaryList = []
         #First create the index files, if needed
         for Files in range(len(Init.Bam_file_list)):
-            #I need to change this
-            global CWD
-            CWD = os.getcwd()
+            # global CWD
+            # CWD = os.getcwd()
             Split = Init.Bam_file_list[Files].split('\\')
             os.chdir(Split[0])
             Bam = bs.AlignmentFile(Init.Bam_file_list[Files], "rb")
@@ -314,6 +328,7 @@ class CountReadsByGrouping(Preprocessing):
             return(AveragedFrame)
         elif Init.CreateAverageFrameFromFrames is False:
             if len(Init.ExportLocation) > 0:
+                print(list(ProcessedFrameList[0]["Reads per region"].values))
                 self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameList, FileName = "GroupedFrame")
             else:
                 pass
@@ -378,10 +393,29 @@ class CountReadsDirectly(Preprocessing):
             ProcessedFrame = pd.DataFrame(DataStructure)
             ProcessedFrameList.append(ProcessedFrame)
         if len(Init.ExportLocation) > 0:
+            print(list(ProcessedFrameList[0]["Reads per region"].values))
             self.ExportFxn2(Exprt, Init.ExportLocation, ProcessedFrameList, FileName = "DirectCounts")
             return(ProcessedFrameList)
         else:
             return(ProcessedFrameList)
+        
+class CountReads_Absolute(Preprocessing):
+    def ExportFxn2(self, Exprt, ExportLocation, ProcessedFrameLists, FileName):
+        Export = Exprt.ExportFxn(ExportLocation, ProcessedFrameLists, FileName)
+        return(Export)
+    
+    def VarLoads(self, Init):
+        Frames = BamFileLoads().VarLoads(Init)
+        Genome = GenomeBinDivider().VarLoads(Init)
+        ProcessedFrameList = []
+        for DF in Frames:
+            Sorted = DF.sort_values(by = ["Start", "End"])
+            BinDict = {
+                Bin: [0, []] for Bin in range(Init.GenomeStartRange, Init.GenomeEndRange) if Bin % Init.BinSize == 0
+                }
+            
+            
+            
         
 
 class GetReadCountsPerCCRE(Preprocessing, InheritableSorting, Exports):
@@ -609,12 +643,7 @@ class argumentParser:
         
 if __name__ == '__main__':
     arg = argumentParser()
-    #############
-    #Set decision to use IDE or CLI here
-    #Options: useIDE or useCLI. DEFAULT == useCLI
-    #############
-    Set_parser = "useCLI"
-    if Set_parser == "useCLI":
+    if VARLOAD_METHOD == "useCLI":
         args = arg.useParser()
         for files in args.files:
             ext = os.path.splitext(files)[-1].lower()
@@ -703,17 +732,19 @@ if __name__ == '__main__':
         if "CWD" in globals():
             ResetCWDToOld().ResetFxn(InputCWD=CWD)
             
-    elif Set_parser == "useIDE":
+    elif VARLOAD_METHOD == "useIDE":
         args = arg.useIDE()
         ###################
         #Add in your inputs here
         #Default values are already set, empty strings or 0 values are vars to be populated
         ###################
         #Set CCREs here, in any order
-        CCREList = [22618059,22620124,22620525,22620925,22621289,22621644,22621971,22622347,22623005,22623238,22623473,
-                             22623833,22624142,22624636,22625172,22625544,22627266,22627922,22634813,22646161,22671008,22671524,
-                             22618244,22620282,22620867,22621232,22621628,22621942,22622228,22622624,22623225,22623466,22623688,22624111,
-                             22624360,22624897,22625505,22625892,22627514,22628230,22635078,22646505,22671251,22671685]
+        CCREList = [70553914,70558202,70558622,70558849,70559168,70559502,70560174,70560636,70561030,70561427,70561778,70562054,70562313,70562591,70562839,   
+                  70563532,70563882,70564077,70564292,70564704,  
+                  70566077,70566519,70566936,70567147,70567437,  
+                  70568115,70568689,70568915,70554082,70558526,70558794,70559141,70559397,70559851,70560429,70560838,70561344,70561659,
+                70561971,70562308,70562509,70562809,70563174,70563769,70564041,70564277,70564641,70564904,
+                70566352,70566861,70567143,70567352,70567615,70568448,70568867,70569264]
         
         CCREList.sort()
         CCRE_StartCoords = [CCREList[x] for x in range(len(CCREList)) if x % 2 == 0]
@@ -722,10 +753,10 @@ if __name__ == '__main__':
 
         #Initialize __init__ and populate the variables with user defined vars
         Init = InitializeVars(
-            List=[r"F:\R_dir\ATAC_forebrain_PND0\Replicate 1\ENCFF879DTA.bam"], 
-            Start=22618000, End=22634000, Strnd="+", Bool=True,
+            List=[r"F:\R_dir\ATAC_midbrain_PND0\ENCFF893JNS.bam"], 
+            Start=70540000, End=70580000, Strnd="+", Bool=True,
             Chromosome="chr2", BinSize=100, AverageFrames=False, Thresh=0.33,
-            Export=r"F:\R_dir\Sample\TestSample1", 
+            Export=r"F:\Re-pair Therapeutics\Gad1\Gad1Midbrain_PND0", 
             CCREs=KnownCCREs, 
             AccountForOpenSpread=500
         )
@@ -774,5 +805,7 @@ if __name__ == '__main__':
         ###################
         if "CWD" in globals():
             ResetCWDToOld().ResetFxn(InputCWD=CWD)
+    else:
+        raise(NameError("Please input either 'useCLI' or 'useIDE' in the FileInput.py VARLOAD_METHOD variable"))
 
 
