@@ -34,7 +34,7 @@ import time
 #test your files. 
 #Default is to use the CLI
 ###################
-VARLOAD_METHOD = "useIDE"
+VARLOAD_METHOD = "useCLI"
 
 CWD = os.getcwd()
 
